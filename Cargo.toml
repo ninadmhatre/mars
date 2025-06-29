@@ -1,0 +1,20 @@
+[package]
+name = "mars"
+version = "0.1.0"
+edition = "2024"
+
+
+[dependencies]
+anyhow = "1.0.98"
+polars = { version = "0.49.1", features = ["lazy", "temporal", "describe", "json", "parquet", "dtype-datetime", "sql"] }
+
+[profile.dev]
+incremental = true
+
+[profile.test]
+incremental = true
+opt-level = 0
+overflow-checks = false
+codegen-units = 16
+
+
