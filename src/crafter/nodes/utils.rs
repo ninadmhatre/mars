@@ -48,11 +48,10 @@ impl Node for ExtractDfCol {
             InputType::Node(node) => {
                 dbg!(&node);
                 let result = node.run()?;
-                dbg!(&result);
                 match result {
                     OutputType::DFrame(df) => {
                         let mut selected_df = df.select(["Date", &self.col])?;
-                        selected_df.rename(&self.col, "Px".into())?;
+                        selected_df.rename(&self.col, self.alias.as_str().into())?;
 
                         Ok(OutputType::DFrame(selected_df))
                     }
@@ -116,61 +115,81 @@ impl Node for FilterOnDfCol {
 
 // endregion -- FilterOnDfCol
 
-// region -- HStackDfs
+// region -- StackDfs
 #[derive(Debug, Default)]
-pub struct HStackDfs {
+pub struct StackDfs {
     dfs: Vec<InputType>,
-    index: String,
-    drop_nulls: bool,
+    uniq_col: String,
+    direction: String,
 }
 
-impl HStackDfs {
+impl StackDfs {
     pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn with_nodes(mut self, nodes: Vec<Box<dyn Node>>) -> Self {
-        self.dfs = nodes.into_iter().map(|n| InputType::Node(n)).collect();
-        self
-    }
-
-    pub fn with_index(mut self, index: &str) -> Self {
-        self.index = index.to_string();
-        self
-    }
-
-    pub fn drop_nulls(mut self) -> Self {
-        self.drop_nulls = true;
-        self
-    }
-}
-
-impl Node for HStackDfs {
-    fn run(&self) -> anyhow::Result<OutputType, anyhow::Error> {
-        let dfs: Vec<DataFrame> = self
-            .dfs
-            .iter()
-            .map(|n| match n {
-                InputType::Node(n) => match n.run() {
-                    Ok(OutputType::DFrame(df)) => df,
-                    _ => Err(anyhow::anyhow!("InputType Not supported!!")),
-                },
-                _ => Err(anyhow::anyhow!("InputType Not supported!!")),
-            })
-            .collect::<anyhow::Result<Vec<DataFrame>>>()?;
-
-        let mut merged_df = dfs[0].clone();
-        for df in dfs.iter().skip(1) {
-            merged_df = merged_df.merge(df, self.drop_nulls, MergeStrategy::Append)?;
+        Self {
+            dfs: Vec::default(),
+            uniq_col: String::new(),
+            direction: "horizontal".to_string(),
         }
-        let df = dfs
-            .iter()
-            .map(|df| df.select(["Date", &self.index]).unwrap())
-            .collect::<Vec<DataFrame>>();
-        let df = df.lazy().hstack(df.iter().map(|df| df.lazy())).collect()?;
+    }
 
-        Ok(OutputType::DFrame(df))
+    pub fn with_nodes(nodes: Vec<Box<dyn Node>>, uniq_col: &str, direction: &str) -> Self {
+        let dfs = nodes.into_iter().map(|n| InputType::Node(n)).collect();
+
+        Self {
+            dfs,
+            uniq_col: uniq_col.into(),
+            direction: direction.into(),
+        }
     }
 }
 
-// endregion -- HStackDfs
+impl Node for StackDfs {
+    fn run(&self) -> anyhow::Result<OutputType> {
+        let mut dfs: Vec<DataFrame> = Vec::new();
+
+        for df in &self.dfs {
+            match df {
+                InputType::Node(node) => match node.run() {
+                    Ok(OutputType::DFrame(df)) => dfs.push(df),
+                    _ => eprintln!("failed to run node {:?}", node),
+                },
+                _ => eprintln!(
+                    "ignoring input type other than InputType::Node! found: {:?}",
+                    df
+                ),
+            }
+        }
+
+        if self.direction == "horizontal" {
+            // let joined_df = concat_df_horizontal(&dfs, true)?;
+            // Ok(OutputType::DFrame(joined_df))
+            let mut acc = dfs[0].clone();
+            for df in dfs.iter().skip(1) {
+                acc = acc.join(
+                    df,
+                    [self.uniq_col.as_str()],
+                    [self.uniq_col.as_str()],
+                    JoinArgs::new(JoinType::Cross),
+                    None,
+                )?;
+            }
+
+            Ok(OutputType::DFrame(acc))
+        } else {
+            let mut acc = dfs[0].clone();
+            for df in dfs.iter().skip(1) {
+                acc = acc.join(
+                    df,
+                    [self.uniq_col.as_str()],
+                    [self.uniq_col.as_str()],
+                    JoinArgs::new(JoinType::Cross),
+                    None,
+                )?;
+            }
+
+            Ok(OutputType::DFrame(acc))
+        }
+    }
+}
+
+// endregion -- StackDfs
