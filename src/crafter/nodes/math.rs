@@ -2,16 +2,19 @@ use polars::prelude::*;
 
 use crate::crafter::{InputType, Node, OutputType};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CalcReturn {
     pub src: InputType,
 }
 
 impl CalcReturn {
-    pub fn from_node(src: Box<dyn Node>) -> Self {
-        Self {
-            src: InputType::Node(src),
-        }
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn node(mut self, src: Box<dyn Node>) -> Self {
+        self.src = InputType::Node(src);
+        self
     }
 }
 

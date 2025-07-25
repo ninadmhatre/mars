@@ -74,14 +74,19 @@ impl Node for DataSrcParquet {
 // endregion -- DataSrcParquet
 
 // region -- WrapDF
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct WrapDF {
     df: DataFrame,
 }
 
 impl WrapDF {
-    pub fn new(df: DataFrame) -> Self {
-        Self { df }
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn src_df(mut self, df: DataFrame) -> Self {
+        self.df = df;
+        self
     }
 }
 

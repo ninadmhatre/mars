@@ -29,7 +29,7 @@ fn get_wrapped_node(add_no_chg_val: bool) -> WrapDF {
     )
     .unwrap();
 
-    WrapDF::new(df)
+    WrapDF::new().src_df(df)
 }
 
 #[test]
@@ -65,7 +65,8 @@ fn test_node_extract() {
     let src_node = DataSrcParquet::new()
         .path(get_ref_data_src("stock_data"))
         .ticker("AAPL");
-    let extract_node = ExtractDfCol::from_node(Box::new(src_node), "Close", Some("AAPL_Close"));
+
+    let extract_node = ExtractDfCol::new().node(Box::new(src_node)).col("Close");
 
     match extract_node.run() {
         Ok(OutputType::DFrame(df)) => {
@@ -81,8 +82,10 @@ fn test_node_math_return() {
     let src_node = DataSrcParquet::new()
         .path(get_ref_data_src("stock_data"))
         .ticker("MSFT");
-    let extract_node = ExtractDfCol::from_node(Box::new(src_node), "Close", Some("Px"));
-    let returns = CalcReturn::from_node(Box::new(extract_node));
+
+    let extract_node = ExtractDfCol::new().node(Box::new(src_node)).col("Close");
+
+    let returns = CalcReturn::new().node(Box::new(extract_node));
 
     match returns.run() {
         Ok(OutputType::DFrame(df)) => {
@@ -109,8 +112,8 @@ fn test_node_wrap_df() {
 
 #[test]
 fn test_node_wrap_extract() {
-    let df = Box::new(get_wrapped_node(false));
-    let extract = ExtractDfCol::from_node(df, "Close", Some("Px"));
+    let df = get_wrapped_node(false);
+    let extract = ExtractDfCol::new().df(df).col("Close");
 
     match extract.run() {
         Ok(OutputType::DFrame(df)) => {
@@ -124,9 +127,9 @@ fn test_node_wrap_extract() {
 
 #[test]
 fn test_node_wrap_returns() {
-    let df = Box::new(get_wrapped_node(true));
-    let extract = ExtractDfCol::from_node(df, "Close", Some("Px"));
-    let returns = CalcReturn::from_node(Box::new(extract));
+    let df = get_wrapped_node(true);
+    let extract = ExtractDfCol::new().df(df).col("Close");
+    let returns = CalcReturn::new().node(Box::new(extract));
 
     let expected = df! {
         "Date" => [1, 2, 3, 4],

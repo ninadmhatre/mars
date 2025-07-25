@@ -1,6 +1,6 @@
 use polars::prelude::*;
 
-use crate::crafter::{InputType, Node, OutputType};
+use crate::crafter::{InputType, Node, OutputType, WrapDF};
 
 // region -- ExtractDfCol
 #[derive(Debug)]
@@ -10,36 +10,70 @@ pub struct ExtractDfCol {
     alias: String,
 }
 
+impl Default for ExtractDfCol {
+    fn default() -> Self {
+        Self {
+            src: InputType::default(),
+            col: String::default(),
+            alias: "Px".to_string(),
+        }
+    }
+}
+
 impl ExtractDfCol {
-    pub fn from_df(src: DataFrame, col: &str, alias: Option<&str>) -> Self {
-        let alias_d = if alias.is_none() {
-            "Px"
-        } else {
-            alias.unwrap()
-        }
-        .to_string();
-
-        Self {
-            src: InputType::DFrame(src),
-            col: col.to_string(),
-            alias: alias_d,
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    pub fn from_node(src: Box<dyn Node>, col: &str, alias: Option<&str>) -> Self {
-        let alias_d = if alias.is_none() {
-            "Px"
-        } else {
-            alias.unwrap()
-        }
-        .to_string();
-
-        Self {
-            src: InputType::Node(src),
-            col: col.to_string(),
-            alias: alias_d,
-        }
+    pub fn node(mut self, src: Box<dyn Node>) -> Self {
+        self.src = InputType::Node(src);
+        self
     }
+
+    pub fn df(mut self, df: WrapDF) -> Self {
+        self.src = InputType::WrapDFrame(df);
+        self
+    }
+
+    pub fn col(mut self, name: &str) -> Self {
+        self.col = name.into();
+        self
+    }
+
+    pub fn rename(mut self, name: &str) -> Self {
+        self.alias = name.into();
+        self
+    }
+
+    // pub fn from_df(src: DataFrame, col: &str, alias: Option<&str>) -> Self {
+    //     let alias_d = if alias.is_none() {
+    //         "Px"
+    //     } else {
+    //         alias.unwrap()
+    //     }
+    //     .to_string();
+    //
+    //     Self {
+    //         src: InputType::DFrame(src),
+    //         col: col.to_string(),
+    //         alias: alias_d,
+    //     }
+    // }
+    //
+    // pub fn from_node(src: Box<dyn Node>, col: &str, alias: Option<&str>) -> Self {
+    //     let alias_d = if alias.is_none() {
+    //         "Px"
+    //     } else {
+    //         alias.unwrap()
+    //     }
+    //     .to_string();
+    //
+    //     Self {
+    //         src: InputType::Node(src),
+    //         col: col.to_string(),
+    //         alias: alias_d,
+    //     }
+    // }
 }
 
 impl Node for ExtractDfCol {
