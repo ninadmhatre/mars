@@ -31,7 +31,7 @@ impl ExtractDfCol {
     }
 
     pub fn df(mut self, df: WrapDF) -> Self {
-        self.src = InputType::WrapDFrame(df);
+        self.src = InputType::WrappedDFrame(df);
         self
     }
 
@@ -40,46 +40,29 @@ impl ExtractDfCol {
         self
     }
 
-    pub fn rename(mut self, name: &str) -> Self {
+    pub fn extract_col_as(mut self, name: &str) -> Self {
         self.alias = name.into();
         self
     }
-
-    // pub fn from_df(src: DataFrame, col: &str, alias: Option<&str>) -> Self {
-    //     let alias_d = if alias.is_none() {
-    //         "Px"
-    //     } else {
-    //         alias.unwrap()
-    //     }
-    //     .to_string();
-    //
-    //     Self {
-    //         src: InputType::DFrame(src),
-    //         col: col.to_string(),
-    //         alias: alias_d,
-    //     }
-    // }
-    //
-    // pub fn from_node(src: Box<dyn Node>, col: &str, alias: Option<&str>) -> Self {
-    //     let alias_d = if alias.is_none() {
-    //         "Px"
-    //     } else {
-    //         alias.unwrap()
-    //     }
-    //     .to_string();
-    //
-    //     Self {
-    //         src: InputType::Node(src),
-    //         col: col.to_string(),
-    //         alias: alias_d,
-    //     }
-    // }
 }
 
 impl Node for ExtractDfCol {
     fn run(&self) -> anyhow::Result<OutputType> {
         match &self.src {
             InputType::Node(node) => {
+                // dbg!(&node);
+                let result = node.run()?;
+                match result {
+                    OutputType::DFrame(df) => {
+                        let mut selected_df = df.select(["Date", &self.col])?;
+                        selected_df.rename(&self.col, self.alias.as_str().into())?;
+
+                        Ok(OutputType::DFrame(selected_df))
+                    }
+                    _ => Err(anyhow::anyhow!("Dataframe has no col: {}", self.col)),
+                }
+            }
+            InputType::WrappedDFrame(node) => {
                 dbg!(&node);
                 let result = node.run()?;
                 match result {
@@ -100,7 +83,7 @@ impl Node for ExtractDfCol {
 // endregion -- ExtractDfCol
 
 // region -- FilterOnDfCol
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct FilterOnDfCol {
     src: InputType,
     col: String,
@@ -108,20 +91,28 @@ pub struct FilterOnDfCol {
 }
 
 impl FilterOnDfCol {
-    pub fn from_df(src: DataFrame, col: &str, val: &str) -> Self {
-        Self {
-            src: InputType::DFrame(src),
-            col: col.to_string(),
-            val: val.to_string(),
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    pub fn from_node(src: Box<dyn Node>, col: &str, val: &str) -> Self {
-        Self {
-            src: InputType::Node(src),
-            col: col.to_string(),
-            val: val.to_string(),
-        }
+    pub fn node(mut self, src: Box<dyn Node>) -> Self {
+        self.src = InputType::Node(src);
+        self
+    }
+
+    pub fn df(mut self, df: WrapDF) -> Self {
+        self.src = InputType::WrappedDFrame(df);
+        self
+    }
+
+    pub fn col(mut self, name: &str) -> Self {
+        self.col = name.into();
+        self
+    }
+
+    pub fn filter(mut self, val: &str) -> Self {
+        self.val = val.into();
+        self
     }
 }
 
@@ -150,30 +141,46 @@ impl Node for FilterOnDfCol {
 // endregion -- FilterOnDfCol
 
 // region -- StackDfs
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct StackDfs {
     dfs: Vec<InputType>,
     uniq_col: String,
     direction: String,
 }
 
-impl StackDfs {
-    pub fn new() -> Self {
+impl Default for StackDfs {
+    fn default() -> Self {
         Self {
             dfs: Vec::default(),
             uniq_col: String::new(),
             direction: "horizontal".to_string(),
         }
     }
+}
 
-    pub fn with_nodes(nodes: Vec<Box<dyn Node>>, uniq_col: &str, direction: &str) -> Self {
-        let dfs = nodes.into_iter().map(|n| InputType::Node(n)).collect();
+impl StackDfs {
+    pub fn new() -> Self {
+        Self::default()
+    }
 
-        Self {
-            dfs,
-            uniq_col: uniq_col.into(),
-            direction: direction.into(),
-        }
+    pub fn nodes(mut self, nodes: Vec<Box<dyn Node>>) -> Self {
+        self.dfs = nodes.into_iter().map(|n| InputType::Node(n)).collect();
+        self
+    }
+
+    pub fn join_by(mut self, col: &str) -> Self {
+        self.uniq_col = col.into();
+        self
+    }
+
+    pub fn horizontal(mut self) -> Self {
+        self.direction = "horizontal".into();
+        self
+    }
+
+    pub fn vertical(mut self) -> Self {
+        self.direction = "vertical".into();
+        self
     }
 }
 
@@ -198,12 +205,13 @@ impl Node for StackDfs {
             // let joined_df = concat_df_horizontal(&dfs, true)?;
             // Ok(OutputType::DFrame(joined_df))
             let mut acc = dfs[0].clone();
+
             for df in dfs.iter().skip(1) {
                 acc = acc.join(
                     df,
                     [self.uniq_col.as_str()],
                     [self.uniq_col.as_str()],
-                    JoinArgs::new(JoinType::Cross),
+                    JoinArgs::new(JoinType::Left),
                     None,
                 )?;
             }

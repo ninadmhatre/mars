@@ -14,7 +14,7 @@ pub enum OutputType {
 #[derive(Debug)]
 pub enum InputType {
     DFrame(DataFrame),
-    WrapDFrame(WrapDF),
+    WrappedDFrame(WrapDF),
     Node(Box<dyn Node + 'static>),
     NodeName(String),
 }
