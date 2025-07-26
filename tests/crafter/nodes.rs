@@ -1,9 +1,18 @@
 use polars::df;
 use polars::prelude::*;
+use std::path::{Path, PathBuf};
 
 use mars::prelude::*;
 
-const TEST_PARQUET_PATH: &str = "/home/ninad/Documents/python/stock_data.parquet";
+pub fn get_project_root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
+}
+
+pub fn get_ref_data_src(name: &str) -> PathBuf {
+    let path = get_project_root().join(format!("resources/{}.parquet", name));
+    println!("generated path: {:?}", &path);
+    path
+}
 
 fn get_wrapped_node(add_no_chg_val: bool) -> WrapDF {
     let mut dates = vec![1, 2, 3];
@@ -20,12 +29,15 @@ fn get_wrapped_node(add_no_chg_val: bool) -> WrapDF {
     )
     .unwrap();
 
-    WrapDF::new(df)
+    WrapDF::new().src_df(df)
 }
 
 #[test]
 fn test_node_parquet_read() {
-    let node = DataSrcParquet::with_path(TEST_PARQUET_PATH);
+    let node = DataSrcParquet::new().path(get_ref_data_src("stock_data"));
+
+    assert!(node.validate(), "node failed validation!");
+
     match node.run() {
         Ok(OutputType::DFrame(df)) => {
             assert_eq!(df.shape(), (84, 7));
@@ -36,7 +48,10 @@ fn test_node_parquet_read() {
 
 #[test]
 fn test_node_parquet_ticker_read() {
-    let node = DataSrcParquet::with_ticker(TEST_PARQUET_PATH, "AAPL");
+    let node = DataSrcParquet::new()
+        .path(get_ref_data_src("stock_data"))
+        .ticker("AAPL");
+
     match node.run() {
         Ok(OutputType::DFrame(df)) => {
             assert_eq!(df.shape(), (42, 7));
@@ -47,8 +62,11 @@ fn test_node_parquet_ticker_read() {
 
 #[test]
 fn test_node_extract() {
-    let src_node = DataSrcParquet::with_ticker(TEST_PARQUET_PATH, "AAPL");
-    let extract_node = ExtractDfCol::from_node(Box::new(src_node), "Close");
+    let src_node = DataSrcParquet::new()
+        .path(get_ref_data_src("stock_data"))
+        .ticker("AAPL");
+
+    let extract_node = ExtractDfCol::new().node(Box::new(src_node)).col("Close");
 
     match extract_node.run() {
         Ok(OutputType::DFrame(df)) => {
@@ -61,9 +79,13 @@ fn test_node_extract() {
 
 #[test]
 fn test_node_math_return() {
-    let src_node = DataSrcParquet::with_ticker(TEST_PARQUET_PATH, "MSFT");
-    let extract_node = ExtractDfCol::from_node(Box::new(src_node), "Close");
-    let returns = CalcReturn::from_node(Box::new(extract_node));
+    let src_node = DataSrcParquet::new()
+        .path(get_ref_data_src("stock_data"))
+        .ticker("MSFT");
+
+    let extract_node = ExtractDfCol::new().node(Box::new(src_node)).col("Close");
+
+    let returns = CalcReturn::new().node(Box::new(extract_node));
 
     match returns.run() {
         Ok(OutputType::DFrame(df)) => {
@@ -90,8 +112,8 @@ fn test_node_wrap_df() {
 
 #[test]
 fn test_node_wrap_extract() {
-    let df = Box::new(get_wrapped_node(false));
-    let extract = ExtractDfCol::from_node(df, "Close");
+    let df = get_wrapped_node(false);
+    let extract = ExtractDfCol::new().df(df).col("Close");
 
     match extract.run() {
         Ok(OutputType::DFrame(df)) => {
@@ -105,9 +127,9 @@ fn test_node_wrap_extract() {
 
 #[test]
 fn test_node_wrap_returns() {
-    let df = Box::new(get_wrapped_node(true));
-    let extract = ExtractDfCol::from_node(df, "Close");
-    let returns = CalcReturn::from_node(Box::new(extract));
+    let df = get_wrapped_node(true);
+    let extract = ExtractDfCol::new().df(df).col("Close");
+    let returns = CalcReturn::new().node(Box::new(extract));
 
     let expected = df! {
         "Date" => [1, 2, 3, 4],

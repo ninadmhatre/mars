@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use crate::crafter::WrapDF;
 use anyhow::Result;
 use polars::frame::DataFrame;
 use polars::prelude::Series;
@@ -13,6 +14,7 @@ pub enum OutputType {
 #[derive(Debug)]
 pub enum InputType {
     DFrame(DataFrame),
+    WrappedDFrame(WrapDF),
     Node(Box<dyn Node + 'static>),
     NodeName(String),
 }

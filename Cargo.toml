@@ -13,8 +13,4 @@ incremental = true
 
 [profile.test]
 incremental = true
-opt-level = 0
-overflow-checks = false
-codegen-units = 16
-
 

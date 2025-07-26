@@ -7,32 +7,43 @@ use polars::sql::SQLContext;
 
 use crate::crafter::{Node, OutputType};
 
-#[derive(Clone, Debug)]
-pub struct DataSrcDB {
-    pub connection_string: String,
-    pub query_function: String,
-}
-
 // region -- DataSrcParquet
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct DataSrcParquet {
     path: PathBuf,
     ticker: String,
+    col_name: String,
 }
 
 impl DataSrcParquet {
-    pub fn with_path(file_path: &str) -> Self {
-        Self {
-            path: file_path.into(),
-            ticker: "".to_string(),
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    pub fn with_ticker(file_path: &str, ticker: &str) -> Self {
-        Self {
-            path: file_path.into(),
-            ticker: ticker.to_string(),
+    pub fn path(mut self, file_path: impl Into<PathBuf>) -> Self {
+        self.path = file_path.into();
+        self
+    }
+
+    pub fn ticker(mut self, ticker: &str) -> Self {
+        self.ticker = ticker.into();
+        self
+    }
+
+    pub fn col_name(mut self, col_name: &str) -> Self {
+        self.col_name = col_name.into();
+        self
+    }
+
+    pub fn validate(&self) -> bool {
+        if !self.path.is_file() {
+            eprintln!(
+                "Error: [{:?}], does not exist!",
+                self.path.to_string_lossy()
+            );
+            return false;
         }
+        true
     }
 
     fn filter(&self, df: DataFrame) -> DataFrame {
@@ -63,16 +74,22 @@ impl Node for DataSrcParquet {
 // endregion -- DataSrcParquet
 
 // region -- WrapDF
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct WrapDF {
     df: DataFrame,
 }
 
 impl WrapDF {
-    pub fn new(df: DataFrame) -> Self {
-        Self { df }
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn src_df(mut self, df: DataFrame) -> Self {
+        self.df = df;
+        self
     }
 }
+
 impl Node for WrapDF {
     fn run(&self) -> Result<OutputType> {
         Ok(OutputType::DFrame(self.df.clone()))
