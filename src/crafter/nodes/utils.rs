@@ -1,6 +1,7 @@
-use crate::crafter::{InputType, Node, OutputType, WrapDF};
 use polars::prelude::*;
 use serde::{Deserialize, Serialize};
+
+use crate::crafter::{InputType, Node, OutputType, WrapDF};
 
 // region -- ExtractDfCol
 #[derive(Debug, Serialize, Deserialize)]
@@ -238,3 +239,38 @@ impl Node for StackDfs {
 }
 
 // endregion -- StackDfs
+
+// -- region: Graph
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GraphMetaData {
+    created_by: String,
+    created_at: String,
+}
+
+impl Default for GraphMetaData {
+    fn default() -> Self {
+        Self {
+            created_at: chrono::Local::now().format("%Y%m%d %H%M%S").to_string(),
+            created_by: std::env::var("USER")
+                .or_else(|_| std::env::var("USERNAME"))
+                .unwrap_or_else(|_| "<Unknown>".to_string()),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Graph {
+    pub last_node: Box<dyn Node>,
+    pub metadata: GraphMetaData,
+}
+
+impl Graph {
+    pub fn new(node: Box<dyn Node>) -> Self {
+        Self {
+            last_node: node,
+            metadata: GraphMetaData::default(),
+        }
+    }
+}
+// -- endregion: Graph

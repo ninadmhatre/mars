@@ -1,7 +1,7 @@
 use crate::crafter::*;
 use crate::flatten::flat;
 
-use crate::flatten::flat::FlattenStore;
+use crate::flatten::flat::{ExistPolicy, FlattenStore};
 use std::path::{Path, PathBuf};
 
 fn get_project_root() -> PathBuf {
@@ -65,19 +65,13 @@ pub fn create_simple_return_model() {
 
     let returns = CalcReturn::new().node(Box::new(all_pxs));
 
-    // flatten::file_store()
-    //     .write(returns)
-    //     .save_as("simple_model")
-    //     .if_exist(Policy::OverWrite);
-    // flatten::file_store().read("simple_model");
-    // // let json = serde_json::to_string(&returns);
-    //
-    // dbg!(&json);
+    let store = flat::FileStore::new()
+        .save_as("sample.json")
+        .on_duplicate(ExistPolicy::Overwrite);
 
-    let store = flat::FileStore::new().save_as("sample");
-
-    store.write(Box::new(&returns));
     dbg!(returns.run());
+
+    store.write(&Graph::new(Box::new(returns)));
 
     // let backtest = BackTest::new(WindowType::SlidingWindow)
     //     .src(returns)
@@ -90,12 +84,26 @@ pub fn create_simple_return_model() {
     // let fit = ModelFitting::new(ModelType::Linear).target("SPX_Close_PctChg").capture(in_sample_metrics).capture(out_sample_metrics);
 }
 
+fn read_and_run_json() {
+    let store = flat::FileStore::new();
+
+    let graph = store.read("sample.json");
+
+    println!("What is metadata: {:?}", &graph.metadata);
+    dbg!(&graph.last_node.run());
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_return_model() {
+    fn test_serialize() {
         create_simple_return_model();
+    }
+
+    #[test]
+    fn test_deserialize() {
+        read_and_run_json()
     }
 }

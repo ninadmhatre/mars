@@ -1,13 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
-use std::time;
 
 use chrono::Local;
 
-use crate::crafter::Node;
+use crate::crafter::Graph;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum BackendTypes {
@@ -34,8 +32,8 @@ pub struct Flatten {
 }
 
 pub trait FlattenStore {
-    fn read(self);
-    fn write(self, data: Box<&dyn Node>) -> bool;
+    fn read(self, name: &str) -> Graph;
+    fn write(self, data: &Graph) -> bool;
 
     fn save_as(self, name: &str) -> Self;
 
@@ -61,16 +59,21 @@ impl Default for FileStore {
 
 impl FileStore {
     pub fn new() -> Self {
-        Self::default()
+        let instance = Self::default();
+        if !instance.data_dir.is_dir() {
+            match fs::create_dir_all(&instance.data_dir) {
+                Ok(_) => println!("FileStore dir created!"),
+                Err(msg) => {
+                    eprintln!("Failed to create a filestore dir {:?}", msg);
+                    panic!("failed to create!");
+                }
+            }
+        }
+        instance
     }
 
     pub fn dir(mut self, path: &str) -> Self {
         self.data_dir = path.into();
-        self
-    }
-
-    pub fn if_exists(mut self, policy: ExistPolicy) -> Self {
-        self.if_exists = policy;
         self
     }
 
@@ -84,10 +87,21 @@ impl FileStore {
 }
 
 impl FlattenStore for FileStore {
-    fn read(self) {
-        todo!()
+    fn read(self, name: &str) -> Graph {
+        let src_file = self.data_dir.join(&name);
+
+        if !src_file.is_file() {
+            panic!("{:?} file does not exist!", src_file);
+        }
+
+        let json_data = fs::read_to_string(src_file).expect("failed to read file!");
+        let final_node: Graph =
+            serde_json::from_str(json_data.as_str()).expect("failed to deserialize!");
+
+        final_node
     }
-    fn write(self, data: Box<&dyn Node>) -> bool {
+
+    fn write(self, data: &Graph) -> bool {
         let dest_file = self.get_abs_filepath();
 
         if dest_file.is_file() {
@@ -126,7 +140,15 @@ impl FlattenStore for FileStore {
             }
         }
 
-        // let handler = OpenOptions::new().create_new(true).write(true);
+        if dest_file.is_file() {
+            match self.if_exists {
+                ExistPolicy::Raise => panic!("Duplicate!"),
+                ExistPolicy::Ignore => eprintln!("Duplicate, not overwriting..."),
+                ExistPolicy::Overwrite => {
+                    fs::remove_file(&dest_file).expect("failed to delete existing file...")
+                }
+            }
+        }
         let mut out = fs::File::create_new(&dest_file)
             .expect(format!("Failed to open a file {:?}", &dest_file.as_path()).as_str());
 
@@ -136,12 +158,14 @@ impl FlattenStore for FileStore {
             .expect("Failed to save serialized model to a file");
         true
     }
+
     fn save_as(mut self, name: &str) -> Self {
         self.name = name.into();
         self
     }
-    fn on_duplicate(self, policy: ExistPolicy) -> Self {
-        todo!()
+    fn on_duplicate(mut self, policy: ExistPolicy) -> Self {
+        self.if_exists = policy;
+        self
     }
 }
 
