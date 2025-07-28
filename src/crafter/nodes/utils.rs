@@ -1,9 +1,9 @@
-use polars::prelude::*;
-
 use crate::crafter::{InputType, Node, OutputType, WrapDF};
+use polars::prelude::*;
+use serde::{Deserialize, Serialize};
 
 // region -- ExtractDfCol
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ExtractDfCol {
     src: InputType,
     col: String,
@@ -46,6 +46,7 @@ impl ExtractDfCol {
     }
 }
 
+#[typetag::serde]
 impl Node for ExtractDfCol {
     fn run(&self) -> anyhow::Result<OutputType> {
         match &self.src {
@@ -83,7 +84,7 @@ impl Node for ExtractDfCol {
 // endregion -- ExtractDfCol
 
 // region -- FilterOnDfCol
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct FilterOnDfCol {
     src: InputType,
     col: String,
@@ -116,6 +117,7 @@ impl FilterOnDfCol {
     }
 }
 
+#[typetag::serde]
 impl Node for FilterOnDfCol {
     fn run(&self) -> anyhow::Result<OutputType> {
         match &self.src {
@@ -141,7 +143,7 @@ impl Node for FilterOnDfCol {
 // endregion -- FilterOnDfCol
 
 // region -- StackDfs
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct StackDfs {
     dfs: Vec<InputType>,
     uniq_col: String,
@@ -184,6 +186,7 @@ impl StackDfs {
     }
 }
 
+#[typetag::serde]
 impl Node for StackDfs {
     fn run(&self) -> anyhow::Result<OutputType> {
         let mut dfs: Vec<DataFrame> = Vec::new();

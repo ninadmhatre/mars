@@ -4,14 +4,15 @@ use crate::crafter::WrapDF;
 use anyhow::Result;
 use polars::frame::DataFrame;
 use polars::prelude::Series;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum OutputType {
     DFrame(DataFrame),
     DSeries(Series),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum InputType {
     DFrame(DataFrame),
     WrappedDFrame(WrapDF),
@@ -25,13 +26,14 @@ impl Default for InputType {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum DBFunction {
     ClosePx,
     OpenPx,
     BothPx,
 }
 
+#[typetag::serde(tag = "type")]
 pub trait Node: std::fmt::Debug {
     fn run(&self) -> anyhow::Result<OutputType>;
 }

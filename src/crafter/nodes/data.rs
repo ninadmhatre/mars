@@ -4,11 +4,12 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use polars::prelude::*;
 use polars::sql::SQLContext;
+use serde::{Deserialize, Serialize};
 
 use crate::crafter::{Node, OutputType};
 
 // region -- DataSrcParquet
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct DataSrcParquet {
     path: PathBuf,
     ticker: String,
@@ -61,6 +62,7 @@ impl DataSrcParquet {
     }
 }
 
+#[typetag::serde]
 impl Node for DataSrcParquet {
     fn run(&self) -> anyhow::Result<OutputType> {
         let mut src_file = File::open(&self.path)
@@ -74,7 +76,7 @@ impl Node for DataSrcParquet {
 // endregion -- DataSrcParquet
 
 // region -- WrapDF
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct WrapDF {
     df: DataFrame,
 }
@@ -90,6 +92,7 @@ impl WrapDF {
     }
 }
 
+#[typetag::serde]
 impl Node for WrapDF {
     fn run(&self) -> Result<OutputType> {
         Ok(OutputType::DFrame(self.df.clone()))

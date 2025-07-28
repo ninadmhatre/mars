@@ -1,8 +1,8 @@
-use polars::prelude::*;
-
 use crate::crafter::{InputType, Node, OutputType, WrapDF};
+use polars::prelude::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct CalcReturn {
     pub src: InputType,
 }
@@ -56,6 +56,7 @@ impl CalcReturn {
     }
 }
 
+#[typetag::serde]
 impl Node for CalcReturn {
     fn run(&self) -> anyhow::Result<OutputType> {
         match &self.src {

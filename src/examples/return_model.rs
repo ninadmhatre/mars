@@ -1,4 +1,7 @@
 use crate::crafter::*;
+use crate::flatten::flat;
+
+use crate::flatten::flat::FlattenStore;
 use std::path::{Path, PathBuf};
 
 fn get_project_root() -> PathBuf {
@@ -62,6 +65,18 @@ pub fn create_simple_return_model() {
 
     let returns = CalcReturn::new().node(Box::new(all_pxs));
 
+    // flatten::file_store()
+    //     .write(returns)
+    //     .save_as("simple_model")
+    //     .if_exist(Policy::OverWrite);
+    // flatten::file_store().read("simple_model");
+    // // let json = serde_json::to_string(&returns);
+    //
+    // dbg!(&json);
+
+    let store = flat::FileStore::new().save_as("sample");
+
+    store.write(Box::new(&returns));
     dbg!(returns.run());
 
     // let backtest = BackTest::new(WindowType::SlidingWindow)
