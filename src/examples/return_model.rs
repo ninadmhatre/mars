@@ -1,8 +1,8 @@
+use std::path::{Path, PathBuf};
+
 use crate::crafter::*;
 use crate::flatten::flat;
-
-use crate::flatten::flat::{ExistPolicy, FlattenStore};
-use std::path::{Path, PathBuf};
+use crate::flatten::flat::FlattenStore;
 
 fn get_project_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf()
@@ -50,10 +50,6 @@ pub fn create_simple_return_model() {
         .col("Close")
         .extract_col_as("SPX_Close");
 
-    // dbg!(&aapl_close.run());
-    // dbg!(&msft_close.run());
-    // dbg!(&spx_close.run());
-
     let all_pxs = StackDfs::new()
         .nodes(vec![
             Box::new(aapl_close),
@@ -64,15 +60,26 @@ pub fn create_simple_return_model() {
         .horizontal();
 
     let returns = CalcReturn::new().node(Box::new(all_pxs));
+    dbg!(&returns.run());
 
-    let store = flat::FileStore::new()
-        .save_as("sample.json")
-        .on_duplicate(ExistPolicy::Overwrite);
+    // let store = flat::FileStore::new()
+    //     .save_as("sample.json")
+    //     .on_duplicate(ExistPolicy::Overwrite);
+    //
+    // dbg!(returns.run());
+    //
+    // store.write(&Graph::new(Box::new(returns)));
 
-    dbg!(returns.run());
+    let fit = ModelFit::new(InputType::Node(Box::new(returns))).target("SPX_Close_PctChg");
 
-    store.write(&Graph::new(Box::new(returns)));
+    let back_test = BackTest::new(WindowType::Sliding)
+        .fit(fit)
+        .run_from("2025-01-01")
+        .run_till("2025-05-01")
+        .train_on(30)
+        .test_on(7);
 
+    let metrics = back_test.run();
     // let backtest = BackTest::new(WindowType::SlidingWindow)
     //     .src(returns)
     //     .train_days(10)
